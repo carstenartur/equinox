@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -1423,8 +1422,13 @@ public class DSTest {
     ServiceReference staticBreak2Ref = getServiceReference(STATIC_BREAKABLE + "2");
     Object staticBreak2 = getContext().getService(staticBreak2Ref);
     try {
-      assertEquals("The StaticCircuit2 component shouldn't have bound objects", 0, ((BoundTester) staticBreak2)
-          .getBoundObjectsCount());
+		BoundTester tester = (BoundTester) staticBreak2;
+		int count = tester.getBoundObjectsCount();
+		String bound = "";
+		for (int i = 0; i < count; i++) {
+			bound += "Ref " + i + " = " + tester.getBoundService(i);
+		}
+		assertEquals("The StaticCircuit2 component shouldn't have bound objects: " + bound, 0, count);
     } finally {
       getContext().ungetService(staticBreak2Ref);
     }
@@ -2925,8 +2929,7 @@ public class DSTest {
       fail(message);
     }
     List tmp = new ArrayList(list2);
-    for (Iterator it = list1.iterator(); it.hasNext();) {
-      Object el = it.next();
+    for (Object el : list1) {
       if (!tmp.contains(el)) {
         fail(message);
       }

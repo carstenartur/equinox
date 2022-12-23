@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2021 IBM Corporation and others.
+ * Copyright (c) 2004, 2022 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -28,6 +28,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.eclipse.osgi.container.Module;
 import org.eclipse.osgi.container.ModuleRevision;
 import org.eclipse.osgi.framework.eventmgr.CopyOnWriteIdentityMap;
@@ -38,6 +40,7 @@ import org.eclipse.osgi.internal.framework.BundleContextImpl;
 import org.eclipse.osgi.internal.framework.EquinoxContainer;
 import org.eclipse.osgi.internal.framework.FilterImpl;
 import org.eclipse.osgi.internal.messages.Msg;
+import org.eclipse.osgi.internal.serviceregistry.ServiceUse.ServiceUseLock;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
 import org.eclipse.osgi.util.NLS;
 import org.osgi.framework.Bundle;
@@ -112,6 +115,11 @@ public class ServiceRegistry {
 	private final EquinoxContainer container;
 	private final BundleContextImpl systemBundleContext;
 	final Debug debug;
+
+	/**
+	 * Map of threads awaiting ServiceUseLocks. Used for deadlock detection.
+	 */
+	private final ConcurrentMap<Thread, ServiceUseLock> awaitedUseLocks = new ConcurrentHashMap<>();
 
 	/**
 	 * Initializes the internal data structures of this ServiceRegistry.
@@ -1158,8 +1166,8 @@ public class ServiceRegistry {
 		if (sm == null) {
 			return;
 		}
-		for (int i = 0, len = names.length; i < len; i++) {
-			sm.checkPermission(new ServicePermission(names[i], ServicePermission.REGISTER));
+		for (String name : names) {
+			sm.checkPermission(new ServicePermission(name, ServicePermission.REGISTER));
 		}
 	}
 
@@ -1203,15 +1211,15 @@ public class ServiceRegistry {
 				return serviceObject.getClass().getClassLoader();
 			}
 		});
-		for (int i = 0, len = clazzes.length; i < len; i++) {
+		for (String element : clazzes) {
 			try {
-				Class<?> serviceClazz = cl == null ? Class.forName(clazzes[i]) : cl.loadClass(clazzes[i]);
+				Class<?> serviceClazz = cl == null ? Class.forName(element) : cl.loadClass(element);
 				if (!serviceClazz.isInstance(serviceObject))
-					return clazzes[i];
+					return element;
 			} catch (ClassNotFoundException e) {
 				//This check is rarely done
-				if (extensiveCheckServiceClass(clazzes[i], serviceObject.getClass()))
-					return clazzes[i];
+				if (extensiveCheckServiceClass(element, serviceObject.getClass()))
+					return element;
 			}
 		}
 		return null;
@@ -1221,8 +1229,8 @@ public class ServiceRegistry {
 		if (clazz.equals(serviceClazz.getName()))
 			return false;
 		Class<?>[] interfaces = serviceClazz.getInterfaces();
-		for (int i = 0, len = interfaces.length; i < len; i++)
-			if (!extensiveCheckServiceClass(clazz, interfaces[i]))
+		for (Class<?> element : interfaces)
+			if (!extensiveCheckServiceClass(clazz, element))
 				return false;
 		Class<?> superClazz = serviceClazz.getSuperclass();
 		if (superClazz != null)
@@ -1234,8 +1242,8 @@ public class ServiceRegistry {
 	static boolean isAssignableTo(BundleContextImpl context, String clazz, ServiceReferenceImpl<?> reference) {
 		Bundle bundle = context.getBundleImpl();
 		String[] clazzes = reference.getClasses();
-		for (int i = 0, len = clazzes.length; i < len; i++)
-			if (!reference.getRegistration().isAssignableTo(bundle, clazzes[i], clazzes[i] == clazz))
+		for (String element : clazzes)
+			if (!reference.getRegistration().isAssignableTo(bundle, element, element == clazz))
 				return false;
 		return true;
 	}
@@ -1446,5 +1454,9 @@ public class ServiceRegistry {
 
 	final EquinoxContainer getContainer() {
 		return container;
+	}
+
+	ConcurrentMap<Thread, ServiceUseLock> getAwaitedUseLocks() {
+		return awaitedUseLocks;
 	}
 }

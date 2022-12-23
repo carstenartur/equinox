@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -72,10 +71,7 @@ public class PolicyOptionComp implements PropertiesProvider {
     }
 
     if (newProps != null) {
-      for (Iterator it = newProps.keySet().iterator(); it.hasNext();) {
-        Object key = it.next();
-        result.put(key, newProps.get(key));
-      }
+    	newProps.forEach(result::put);
     }
 
     return result;

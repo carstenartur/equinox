@@ -23,8 +23,8 @@ pipeline {
 			steps {
 				sh """
 				mvn clean verify --batch-mode --fail-at-end -Dmaven.repo.local=$WORKSPACE/.m2/repository \
-					-Pbuild-individual-bundles -Pbree-libs -Papi-check \
-					-Dcompare-version-with-baselines.skip=false -Dcompare-version-with-baselines.skip=false \
+					-Pbuild-individual-bundles -Pbree-libs -Papi-check -Pjavadoc\
+					-Dcompare-version-with-baselines.skip=false \
 					-Dproject.build.sourceEncoding=UTF-8 \
 					-Drt.equinox.binaries.loc=$WORKSPACE/rt.equinox.binaries 
 				"""
@@ -33,7 +33,8 @@ pipeline {
 				always {
 					archiveArtifacts artifacts: '**/*.log, **/*.jar', allowEmptyArchive: true
 					junit '**/target/surefire-reports/TEST-*.xml'
-					publishIssues issues:[scanForIssues(tool: java()), scanForIssues(tool: mavenConsole())]
+					discoverGitReferenceBuild referenceJob: 'equinox/master'
+					recordIssues publishAllIssues: true, tools: [java(), mavenConsole(), javaDoc()]
 				}
 			}
 		}

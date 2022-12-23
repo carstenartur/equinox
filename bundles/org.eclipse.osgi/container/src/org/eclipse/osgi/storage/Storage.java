@@ -785,9 +785,9 @@ public class Storage {
 		}
 		List<StorageHookFactory<?, ?, ?>> factories = new ArrayList<>(getConfiguration().getHookRegistry().getStorageHookFactories());
 		List<StorageHook<?, ?>> hooks = new ArrayList<>(factories.size());
-		for (Iterator<StorageHookFactory<?, ?, ?>> iFactories = factories.iterator(); iFactories.hasNext();) {
+		for (StorageHookFactory<?, ?, ?> storageHookFactory : factories) {
 			@SuppressWarnings("unchecked")
-			StorageHookFactory<Object, Object, StorageHook<Object, Object>> next = (StorageHookFactory<Object, Object, StorageHook<Object, Object>>) iFactories.next();
+			StorageHookFactory<Object, Object, StorageHook<Object, Object>> next = (StorageHookFactory<Object, Object, StorageHook<Object, Object>>) storageHookFactory;
 			StorageHook<Object, Object> hook = next.createStorageHookAndValidateFactoryClass(generation);
 			if (hook != null) {
 				hooks.add(hook);
@@ -1115,7 +1115,7 @@ public class Storage {
 
 	File stageContent0(InputStream in, URL sourceURL) throws BundleException {
 		File outFile = null;
-		try {
+		try (InputStream stream = in) {
 			outFile = ReliableFile.createTempFile(BUNDLE_FILE_NAME, ".tmp", childRoot); //$NON-NLS-1$
 			String protocol = sourceURL == null ? null : sourceURL.getProtocol();
 
@@ -1615,9 +1615,9 @@ public class Storage {
 			}
 		}
 		// now we need to recover for any hooks that are left
-		for (Iterator<StorageHookFactory<?, ?, ?>> iFactories = factories.iterator(); iFactories.hasNext();) {
+		for (StorageHookFactory<?, ?, ?> storageHookFactory : factories) {
 			@SuppressWarnings("unchecked")
-			StorageHookFactory<Object, Object, StorageHook<Object, Object>> next = (StorageHookFactory<Object, Object, StorageHook<Object, Object>>) iFactories.next();
+			StorageHookFactory<Object, Object, StorageHook<Object, Object>> next = (StorageHookFactory<Object, Object, StorageHook<Object, Object>>) storageHookFactory;
 			// recover by reinitializing the hook
 			for (Generation generation : generations) {
 				if (generation.getBundleInfo().getBundleId() == 0) {

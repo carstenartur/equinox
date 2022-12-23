@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  Copyright (c) 2000, 2018 IBM Corporation and others.
+ *  Copyright (c) 2000, 2022 IBM Corporation and others.
  *
  *  This program and the accompanying materials
  *  are made available under the terms of the Eclipse Public License 2.0
@@ -13,6 +13,8 @@
  *     Patrick Tasse - Add extra constructor to Path class (bug 454959)
  *******************************************************************************/
 package org.eclipse.equinox.common.tests;
+
+import static org.junit.Assert.assertNotEquals;
 
 import java.util.ArrayList;
 
@@ -120,6 +122,22 @@ public class PathTest extends CoreTest {
 		assertEquals("4.1.win", combo, win.removeTrailingSeparator().append(aftString));
 		// append path to root path uses optimized code
 		assertEquals("4.2.win", combo, Path.forWindows("/").append(win).append(aftString));
+		assertEquals("4.21.win", combo,
+				Path.forWindows("/").append(win).append("..").append("third").append(aftString));
+		assertEquals("4.2X.win", Path.forWindows("/").append("x"),
+				Path.forWindows("/").append("x").append("..").append("x"));
+		assertEquals("4.2XY/.win", Path.forWindows("\\").append("x/y"),
+				Path.forWindows("\\").append("x").append("y").append("../..").append("x/y"));
+		assertEquals("4.2XY\\.win", Path.forWindows("/").append("x\\y"),
+				Path.forWindows("/").append("x").append("y").append("..\\..").append("x\\y"));
+		assertEquals("4.22.win", combo,
+				Path.forWindows("/").append(win).append("..\\..").append("second\\third").append(aftString));
+		assertEquals("4.23.win", combo,
+				Path.forWindows("/").append(win).append("..\\..\\..").append("first\\second\\third").append(aftString));
+		assertEquals("4.24.win", combo,
+				Path.forWindows("/").append(win).append("..\\..\\..").append(win).append(aftString));
+		assertEquals("4.25.win", combo,
+				Path.forWindows("/").append(win).append("../../..").append(win).append(aftString));
 		assertEquals("4.3.win", combo, Path.forWindows("/").append(posix).append(aftString));
 		// append path to empty path uses optimized code
 		assertEquals("4.4.win", combo, Path.forWindows("").append(win).append(aftString).makeAbsolute());
@@ -925,6 +943,53 @@ public class PathTest extends CoreTest {
 
 		assertEquals("1.1", "/", Path.ROOT.toString());
 		assertEquals("1.2", "", Path.EMPTY.toString());
+	}
+
+	public void testHash() {
+		// actual hash codes may depend on JDK implementation of String.hashCode()
+
+		assertEquals("a", new Path("a").hashCode(), new Path("a").hashCode());
+		// small chance a VM may actually provide equals hashes for "a" and "b" which
+		// would result in failing test:
+		if ("a".hashCode() != "b".hashCode()) {
+			assertNotEquals("a vs b", new Path("a").hashCode(), new Path("b").hashCode());
+		}
+		if ("d".hashCode() != "e".hashCode()) {
+			assertNotEquals("d vs e", new Path("d").hashCode(), new Path("e").hashCode());
+		}
+		assertEquals("b", new Path("b").hashCode(), new Path("b").hashCode());
+		assertEquals("c", new Path("c:\\d").hashCode(), new Path("c:\\d").hashCode());
+		assertEquals("cd", new Path("c:\\").append("d").hashCode(), new Path("c:\\").append("d").hashCode());
+		assertEquals("cd", Path.forWindows("c:\\d").hashCode(), Path.forWindows("c:\\").append("d").hashCode());
+		assertEquals("OS independent", Path.forWindows("p").append("d").hashCode(),
+				Path.forPosix("p").append("d").hashCode());
+		assertEquals("OS independent", Path.forWindows("p").append("d").hashCode(),
+				Path.forPosix("p").append("d").hashCode());
+		assertEquals("trailing independent", new Path("p").removeTrailingSeparator().hashCode(),
+				new Path("p").addTrailingSeparator().hashCode());
+	}
+
+	public void testEquals() {
+		assertEquals("a", new Path("a"), new Path("a"));
+		assertEquals("b", new Path("a"), new Path("a"));
+		assertEquals("c", new Path("c").append("d"), new Path("c").append("d"));
+		assertEquals("c", new Path("c:\\d"), new Path("c:\\d"));
+		assertEquals("c", Path.forWindows("c:\\d"), Path.forWindows("c:\\d"));
+		assertEquals("c", Path.forPosix("c:\\d"), Path.forPosix("c:\\d"));
+		assertEquals("c", Path.forWindows("c:/d"), Path.forWindows("c:/d"));
+		assertEquals("c", Path.forPosix("c:/d"), Path.forPosix("c:/d"));
+		assertEquals("cd", Path.forWindows("c:\\d"), Path.forWindows("c:\\").append("d"));
+		assertEquals("trailing independent", new Path("p").removeTrailingSeparator(),
+				new Path("p").addTrailingSeparator());
+		assertEquals("OS independent", Path.forWindows("p"), Path.forPosix("p"));
+		Path hashed = new Path("a");
+		hashed.hashCode();
+		assertEquals("hash independent", new Path("a"), hashed);
+
+		assertFalse("unc dependent", new Path("p").makeUNC(true).equals(new Path("p").makeUNC(false)));
+		assertFalse("absolute dependent", new Path("p").equals(new Path("p").makeAbsolute()));
+		assertFalse("leading/ dependent", new Path("/p").equals(new Path("p")));
+		assertFalse("leading\\ dependent", new Path("\\p").equals(new Path("p")));
 	}
 
 	public void testUptoSegment() {

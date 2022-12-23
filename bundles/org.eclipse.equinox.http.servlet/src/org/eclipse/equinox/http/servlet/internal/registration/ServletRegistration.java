@@ -41,11 +41,13 @@ public class ServletRegistration extends EndpointRegistration<ServletDTO> {
 
 		while (iterator.hasNext()) {
 			try {
+				// Note: we intentionally trigger next() inside the try/catch block
+				// to fail early if optional imports are missing
 				factory = iterator.next();
 				break;
 			}
 			catch (Throwable t) {
-				// ignore, it means our optional imports are missing.
+				// ignore ServiceConfigurationError, it means our optional imports are missing.
 			}
 		}
 	}

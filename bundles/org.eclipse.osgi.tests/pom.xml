@@ -14,12 +14,12 @@
 <parent>
     <groupId>org.eclipse.equinox</groupId>
     <artifactId>parent</artifactId>
-    <version>4.25.0-SNAPSHOT</version>
+    <version>4.27.0-SNAPSHOT</version>
     <relativePath>../../</relativePath>
 </parent>
   <groupId>org.eclipse.osgi</groupId>
   <artifactId>org.eclipse.osgi.tests</artifactId>
-  <version>3.16.800-SNAPSHOT</version>
+  <version>3.16.1000-SNAPSHOT</version>
   <packaging>eclipse-test-plugin</packaging>
 
   <properties>
@@ -42,51 +42,6 @@
               <requirement>
                 <id>org.eclipse.osgi.compatibility.state</id>
                 <type>p2-installable-unit</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.eclipse.jdt.junit4.runtime</id>
-                <type>p2-installable-unit</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.eclipse.jdt.junit5.runtime</id>
-                <type>p2-installable-unit</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.eclipse.pde.junit.runtime</id>
-                <type>p2-installable-unit</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.osgi.util.function</id>
-                <type>eclipse-plugin</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.osgi.util.measurement</id>
-                <type>eclipse-plugin</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.osgi.util.position</id>
-                <type>eclipse-plugin</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.osgi.util.promise</id>
-                <type>eclipse-plugin</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.osgi.util.xml</id>
-                <type>eclipse-plugin</type>
-                <versionRange>0.0.0</versionRange>
-              </requirement>
-              <requirement>
-                <id>org.eclipse.equinox.event</id>
-                <type>eclipse-plugin</type>
                 <versionRange>0.0.0</versionRange>
               </requirement>
             </extraRequirements>
