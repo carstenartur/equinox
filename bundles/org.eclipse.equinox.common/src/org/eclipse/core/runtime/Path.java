@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2022 IBM Corporation and others.
+ * Copyright (c) 2000, 2023 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -47,23 +47,68 @@ public final class Path implements IPath, Cloneable {
 
 	private static final int ALL_SEPARATORS = HAS_LEADING | IS_UNC | HAS_TRAILING;
 
-	/** Constant value indicating if the current platform is Windows */
-	private static final boolean RUNNING_ON_WINDOWS = java.io.File.separatorChar == '\\';
+	/**
+	 * Carrier that ensures that the contained constants are always initialized,
+	 * regardless of if the Path class or IPath interface is initialized fist.
+	 */
+	static class Constants {
+		/** Constant value indicating if the current platform is Windows */
+		static final boolean RUNNING_ON_WINDOWS = java.io.File.separatorChar == '\\';
 
-	/** Constant empty string value. */
-	private static final String EMPTY_STRING = ""; //$NON-NLS-1$
+		/** Constant value indicating no segments */
+		static final String[] NO_SEGMENTS = new String[0];
 
-	/** Constant value indicating no segments */
-	private static final String[] NO_SEGMENTS = new String[0];
+		/**
+		 * We have cycle : Path implements IPath and IPath uses Path object instances in
+		 * interface constants.
+		 * 
+		 * Constants and methods below are needed to resolve init order issues between
+		 * IPath and Path classes - depending on which is loaded first, constants
+		 * defined in one of the classes and pointing to other one will see not
+		 * initialized state. See https://github.com/eclipse-equinox/equinox/pull/279
+		 */
+		private static Path empty = new Path(""); //$NON-NLS-1$
+		private static Path root = new Path("/"); //$NON-NLS-1$
 
-	/** Constant value containing the empty path with no device on the local file system. */
-	public static final Path EMPTY = new Path(EMPTY_STRING);
+		static synchronized Path empty() {
+			if (empty == null) {
+				empty = new Path(""); //$NON-NLS-1$
+			}
+			return empty;
+		}
 
-	/** Constant root path string (<code>"/"</code>). */
-	private static final String ROOT_STRING = "/"; //$NON-NLS-1$
+		static synchronized Path root() {
+			if (root == null) {
+				root = new Path("/"); //$NON-NLS-1$
+			}
+			return root;
+		}
+	}
 
-	/** Constant value containing the root path with no device on the local file system. */
-	public static final Path ROOT = new Path(ROOT_STRING);
+	/**
+	 * Constant value containing the empty path with no device on the local file
+	 * system.
+	 * <p>
+	 * Instead of referencing this constants it is recommended to use
+	 * {@link IPath#EMPTY} instead.
+	 * </p>
+	 * 
+	 * @see IPath#EMPTY
+	 */
+	public static final Path EMPTY = Constants.empty();
+
+	/**
+	 * Constant value containing the root path with no device on the local file
+	 * system.
+	 * <p>
+	 * Instead of referencing this constants it is recommended to use
+	 * {@link IPath#ROOT} instead.
+	 * </p>
+	 * 
+	 * @see IPath#ROOT
+	 */
+	public static final Path ROOT = Constants.root();
+
 
 	/** The device id string. May be null if there is no device. */
 	private final String device;
@@ -80,38 +125,51 @@ public final class Path implements IPath, Cloneable {
 	/** flags indicating separators (has leading, is UNC, has trailing, is for Windows) */
 	private final byte flags;
 
-	/** 
-	 * Constructs a new path from the given string path.
-	 * The string path must represent a valid file system path
-	 * on the local file system. 
-	 * The path is canonicalized and double slashes are removed
-	 * except at the beginning. (to handle UNC paths). All forward
-	 * slashes ('/') are treated as segment delimiters, and any
-	 * segment and device delimiters for the local file system are
-	 * also respected.
+	/**
+	 * Constructs a new path from the given string path. The string path must
+	 * represent a valid file system path on the local file system. The path is
+	 * canonicalized and double slashes are removed except at the beginning. (to
+	 * handle UNC paths). All forward slashes ('/') are treated as segment
+	 * delimiters, and any segment and device delimiters for the local file system
+	 * are also respected.
+	 * <p>
+	 * Instead of calling this method it is recommended to call
+	 * {@link IPath#fromOSString(String)} instead.
+	 * </p>
 	 *
-	 * @param pathString the portable string path
+	 * @param pathString the operating-system specific string path
+	 * @return the IPath representing the given OS specific string path
 	 * @see IPath#toPortableString()
+	 * @see IPath#fromOSString(String)
 	 * @since 3.1
 	 */
 	public static IPath fromOSString(String pathString) {
-		return new Path(pathString);
+		return IPath.fromOSString(pathString);
 	}
 
-	/** 
-	 * Constructs a new path from the given path string.
-	 * The path string must have been produced by a previous
-	 * call to <code>IPath.toPortableString</code>.
+	/**
+	 * Constructs a new path from the given path string. The path string must have
+	 * been produced by a previous call to <code>IPath.toPortableString</code>.
+	 * <p>
+	 * Instead of calling this method it is recommended to call
+	 * {@link IPath#fromPortableString(String)} instead.
+	 * </p>
 	 *
 	 * @param pathString the portable path string
+	 * @return the IPath representing the given portable string path
 	 * @see IPath#toPortableString()
+	 * @see IPath#fromPortableString(String)
 	 * @since 3.1
 	 */
 	public static IPath fromPortableString(String pathString) {
+		return IPath.fromPortableString(pathString);
+	}
+
+	static IPath parsePortableString(String pathString) {
 		int firstMatch = pathString.indexOf(DEVICE_SEPARATOR) + 1;
 		//no extra work required if no device characters
 		if (firstMatch <= 0)
-			return new Path(null, pathString, RUNNING_ON_WINDOWS);
+			return new Path(null, pathString, Constants.RUNNING_ON_WINDOWS);
 		//if we find a single colon, then the path has a device
 		String devicePart = null;
 		int pathLength = pathString.length();
@@ -121,50 +179,62 @@ public final class Path implements IPath, Cloneable {
 		}
 		//optimize for no colon literals
 		if (pathString.indexOf(DEVICE_SEPARATOR) == -1)
-			return new Path(devicePart, pathString, RUNNING_ON_WINDOWS);
+			return new Path(devicePart, pathString, Constants.RUNNING_ON_WINDOWS);
 		//contract colon literals
 		char[] chars = pathString.toCharArray();
 		int readOffset = 0, writeOffset = 0, length = chars.length;
 		while (readOffset < length) {
-			if (chars[readOffset] == DEVICE_SEPARATOR)
-				if (++readOffset >= length)
-					break;
+			if (chars[readOffset] == DEVICE_SEPARATOR && ++readOffset >= length) {
+				break;
+			}
 			chars[writeOffset++] = chars[readOffset++];
 		}
-		return new Path(devicePart, new String(chars, 0, writeOffset), RUNNING_ON_WINDOWS);
+		return new Path(devicePart, new String(chars, 0, writeOffset), Constants.RUNNING_ON_WINDOWS);
 	}
 
 	/**
-	 * Constructs a new POSIX path from the given string path. The string path
-	 * must represent a valid file system path on a POSIX file system. The path
-	 * is canonicalized and double slashes are removed except at the beginning
-	 * (to handle UNC paths). All forward slashes ('/') are treated as segment
-	 * delimiters. This factory method should be used if the string path is for
-	 * a POSIX file system.
-	 *
+	 * Constructs a new POSIX path from the given string path. The string path must
+	 * represent a valid file system path on a POSIX file system. The path is
+	 * canonicalized and double slashes are removed except at the beginning (to
+	 * handle UNC paths). All forward slashes ('/') are treated as segment
+	 * delimiters. This factory method should be used if the string path is for a
+	 * POSIX file system.
+	 * <p>
+	 * Instead of calling this method it is recommended to call
+	 * {@link IPath#forPosix(String)} instead.
+	 * </p>
+	 * 
 	 * @param fullPath the string path
+	 * @return the IPath representing the given POSIX string path
 	 * @see #isValidPosixPath(String)
+	 * @see IPath#forPosix(String)
 	 * @since 3.7
 	 */
 	public static Path forPosix(String fullPath) {
-		return new Path(fullPath, false);
+		return (Path) IPath.forPosix(fullPath);
 	}
 
 	/**
 	 * Constructs a new Windows path from the given string path. The string path
-	 * must represent a valid file system path on the Windows file system. The
-	 * path is canonicalized and double slashes are removed except at the
-	 * beginning (to handle UNC paths). All forward slashes ('/') are treated as
-	 * segment delimiters, and any segment ('\') and device (':') delimiters for
-	 * the Windows file system are also respected. This factory method should be
-	 * used if the string path is for the Windows file system.
-	 *
+	 * must represent a valid file system path on the Windows file system. The path
+	 * is canonicalized and double slashes are removed except at the beginning (to
+	 * handle UNC paths). All forward slashes ('/') are treated as segment
+	 * delimiters, and any segment ('\') and device (':') delimiters for the Windows
+	 * file system are also respected. This factory method should be used if the
+	 * string path is for the Windows file system.
+	 * <p>
+	 * Instead of calling this method it is recommended to call
+	 * {@link IPath#forWindows(String)} instead.
+	 * </p>
+	 * 
 	 * @param fullPath the string path
+	 * @return the IPath representing the given Windows string path
 	 * @see #isValidWindowsPath(String)
+	 * @see IPath#forWindows(String)
 	 * @since 3.7
 	 */
 	public static Path forWindows(String fullPath) {
-		return new Path(fullPath, true);
+		return (Path) IPath.forWindows(fullPath);
 	}
 
 	/** 
@@ -182,7 +252,7 @@ public final class Path implements IPath, Cloneable {
 	 * @see #isValidPath(String)
 	 */
 	public Path(String fullPath) {
-		this(fullPath, RUNNING_ON_WINDOWS);
+		this(fullPath, Constants.RUNNING_ON_WINDOWS);
 	}
 
 	/** 
@@ -200,7 +270,7 @@ public final class Path implements IPath, Cloneable {
 	 * @see #setDevice(String)
 	 */
 	public Path(String device, String path) {
-		this(device, backslashToForward(path, RUNNING_ON_WINDOWS), RUNNING_ON_WINDOWS);
+		this(device, backslashToForward(path, Constants.RUNNING_ON_WINDOWS), Constants.RUNNING_ON_WINDOWS);
 	}
 
 	private static String backslashToForward(String path, boolean forWindows) {
@@ -224,7 +294,7 @@ public final class Path implements IPath, Cloneable {
 	 * @param forWindows true if the string path is for the Windows file system
 	 * @since 3.7
 	 */
-	private Path(String fullPath, boolean forWindows) {
+	Path(String fullPath, boolean forWindows) {
 		String devicePart = null;
 		if (forWindows) {
 			//convert backslash to forward slash
@@ -540,7 +610,7 @@ public final class Path implements IPath, Cloneable {
 		// performance sensitive --- avoid creating garbage
 		int segmentCount = computeSegmentCount(path);
 		if (segmentCount == 0)
-			return NO_SEGMENTS;
+			return Constants.NO_SEGMENTS;
 		String[] newSegments = new String[segmentCount];
 		int len = path.length();
 		// check for initial slash
@@ -1026,7 +1096,7 @@ public final class Path implements IPath, Cloneable {
 		if (count == 0)
 			return this;
 		if (count >= segments.length) {
-			return new Path(device, NO_SEGMENTS, flags & IS_FOR_WINDOWS);
+			return new Path(device, Constants.NO_SEGMENTS, flags & IS_FOR_WINDOWS);
 		}
 		Assert.isLegal(count > 0);
 		int newSize = segments.length - count;
@@ -1046,7 +1116,7 @@ public final class Path implements IPath, Cloneable {
 			return this;
 		if (count >= segments.length) {
 			//result will have no trailing separator
-			return new Path(device, NO_SEGMENTS, flags & (HAS_LEADING | IS_UNC | IS_FOR_WINDOWS));
+			return new Path(device, Constants.NO_SEGMENTS, flags & (HAS_LEADING | IS_UNC | IS_FOR_WINDOWS));
 		}
 		Assert.isLegal(count > 0);
 		int newSize = segments.length - count;
@@ -1126,7 +1196,7 @@ public final class Path implements IPath, Cloneable {
 		//it uses the OS file separator instead of the path separator
 		int resultSize = computeLength();
 		if (resultSize <= 0)
-			return EMPTY_STRING;
+			return ""; //$NON-NLS-1$
 		char FILE_SEPARATOR = File.separatorChar;
 		char[] result = new char[resultSize];
 		int offset = 0;
@@ -1165,7 +1235,7 @@ public final class Path implements IPath, Cloneable {
 	public String toPortableString() {
 		int resultSize = computeLength();
 		if (resultSize <= 0)
-			return EMPTY_STRING;
+			return ""; //$NON-NLS-1$
 		StringBuilder result = new StringBuilder(resultSize);
 		if (device != null)
 			result.append(device);
@@ -1193,7 +1263,7 @@ public final class Path implements IPath, Cloneable {
 	public String toString() {
 		int resultSize = computeLength();
 		if (resultSize <= 0)
-			return EMPTY_STRING;
+			return ""; //$NON-NLS-1$
 		char[] result = new char[resultSize];
 		int offset = 0;
 		if (device != null) {
@@ -1230,7 +1300,7 @@ public final class Path implements IPath, Cloneable {
 	@Override
 	public IPath uptoSegment(int count) {
 		if (count == 0)
-			return new Path(device, NO_SEGMENTS, flags & (HAS_LEADING | IS_UNC | IS_FOR_WINDOWS));
+			return new Path(device, Constants.NO_SEGMENTS, flags & (HAS_LEADING | IS_UNC | IS_FOR_WINDOWS));
 		if (count >= segments.length)
 			return this;
 		Assert.isTrue(count > 0, "Invalid parameter to Path.uptoSegment"); //$NON-NLS-1$

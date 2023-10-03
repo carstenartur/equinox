@@ -46,7 +46,7 @@ public class Activator implements BundleActivator {
 	/**
 	 * Table to keep track of all the URL converter services.
 	 */
-	private static Map<String, ServiceTracker<Object, URLConverter>> urlTrackers = new HashMap<>();
+	private static final Map<String, ServiceTracker<Object, URLConverter>> urlTrackers = new HashMap<>();
 	private static BundleContext bundleContext;
 	private static Activator singleton;
 	private ServiceRegistration<URLConverter> platformURLConverterService = null;
@@ -197,11 +197,13 @@ public class Activator implements BundleActivator {
 	 * in the given locale. Does not return null.
 	 * @throws MissingResourceException If the corresponding resource could not be found
 	 */
-	public ResourceBundle getLocalization(Bundle bundle, String locale) throws MissingResourceException {
-		if (localizationTracker == null) {
-			throw new MissingResourceException(CommonMessages.activator_resourceBundleNotStarted, bundle.getSymbolicName(), ""); //$NON-NLS-1$
+	public static ResourceBundle getLocalization(Bundle bundle, String locale) throws MissingResourceException {
+		Activator activator = Activator.getDefault();
+		if (activator == null) {
+			throw new MissingResourceException(CommonMessages.activator_resourceBundleNotStarted,
+					bundle.getSymbolicName(), ""); //$NON-NLS-1$
 		}
-		BundleLocalization location = localizationTracker.current().orElse(null);
+		BundleLocalization location = activator.localizationTracker.current().orElse(null);
 		ResourceBundle result = null;
 		if (location != null)
 			result = location.getLocalization(bundle, locale);
@@ -249,7 +251,7 @@ public class Activator implements BundleActivator {
 				for (ServiceTracker<Object, URLConverter> tracker : urlTrackers.values()) {
 					tracker.close();
 				}
-				urlTrackers = new HashMap<>();
+				urlTrackers.clear();
 			}
 		}
 	}
